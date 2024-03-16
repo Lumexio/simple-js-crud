@@ -11,11 +11,15 @@ To run this project locally, follow these steps:
 
 
 3. Install dependencies using npm. ⚒️
+```
+npm install
+``` 
 
 
-4. Start the application. 🚀
-
-
+5. Start the application. 🚀
+```
+node main.js
+```
 ## Usage
 
 Once the application is running, you can interact with it using the command line interface. Follow the prompts to perform CRUD operations on the data.
