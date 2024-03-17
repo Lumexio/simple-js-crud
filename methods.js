@@ -1,6 +1,14 @@
 const readlineSync = require('readline-sync');
 var fs = require('fs');
-
+var mariadb = require('mariadb');
+// MariaDB connection configuration
+const pool = mariadb.createPool({
+ host: 'localhost',
+ user: 'root',
+ password: 'pass',
+ database: 'pokemon_db',
+ connectionLimit: 5 // adjust as needed
+});
 // Define ANSI escape codes for styling
 const styles = {
  reset: '\x1b[0m',
@@ -38,17 +46,7 @@ class Pokemon {
 
  }
 }
-function create() {
- console.clear();
- console.log(styles.bgYellow + styles.fgBlack + '||Create Pokemon||\n' + styles.reset);
- let nombre = readlineSync.question('Nombre:');
- let tipo = readlineSync.question('Tipo:');
- let vida = readlineSync.questionInt('Vida:');
- let ataque = readlineSync.questionInt('Ataque:');
- let defensa = readlineSync.questionInt('Defensa:');
-
- let newPokemon = new Pokemon(nombre, tipo, vida, ataque, defensa);
-
+function insertIntoJson(newPokemon) {
  // Read existing data from JSON file
  fs.readFile('data.json', 'utf8', function (err, data) {
   if (err) {
@@ -77,7 +75,45 @@ function create() {
   }
  });
 }
-function get() {
+// Function to insert data into MariaDB database
+async function insertIntoMariaDB(pokemon) {
+ let conn;
+ try {
+  conn = await pool.getConnection();
+  const sql = 'INSERT INTO pokemons (nombre, tipo, vida, ataque, defensa) VALUES (?, ?, ?, ?, ?)';
+  const values = [pokemon.nombre, pokemon.tipo, pokemon.vida, pokemon.ataque, pokemon.defensa];
+  const result = await conn.query(sql, values);
+  console.log('Pokemon inserted into MariaDB:', result);
+ } catch (err) {
+  console.log('Error inserting data into MariaDB:', err);
+ } finally {
+  if (conn) conn.release();
+ }
+}
+function create() {
+ console.clear();
+ console.log(styles.bgYellow + styles.fgBlack + '||Create Pokemon||\n' + styles.reset);
+ let nombre = readlineSync.question('Nombre:');
+ let tipo = readlineSync.question('Tipo:');
+ let vida = readlineSync.questionInt('Vida:');
+ let ataque = readlineSync.questionInt('Ataque:');
+ let defensa = readlineSync.questionInt('Defensa:');
+
+ let newPokemon = new Pokemon(nombre, tipo, vida, ataque, defensa);
+
+ // Prompt the user to choose insertion method
+ const options = ['MySQL', 'JSON'];
+ const index = readlineSync.keyInSelect(options, 'Choose insertion method:');
+
+ if (index === 0) {
+  insertIntoMariaDB(newPokemon);
+ } else if (index === 1) {
+  insertIntoJson(newPokemon);
+ } else {
+  console.log('Operation canceled.');
+ }
+}
+function getFromJson() {
 
  fs.readFile('data.json', 'utf8', function (err, data) {
   if (err) {
@@ -90,6 +126,39 @@ function get() {
  });
 
 }
+async function getFromMariadb() {
+ let conn
+ pool.getConnection()
+  .then(connection => {
+   conn = connection;
+   return conn.query('SELECT * FROM pokemons');
+  })
+  .then(rows => {
+   BoxArr = rows;
+   console.clear();
+   BoxArr.length > 0 ? formatTable(BoxArr) : console.log("No hay datos");
+  })
+  .catch(err => {
+   console.log('Error retrieving data from MariaDB:', err);
+  })
+  .finally(() => {
+   if (conn) conn.release();
+  });
+}
+function get() {
+ console.clear();
+ // Prompt the user to choose insertion method
+ const options = ['MySQL', 'JSON'];
+ const index = readlineSync.keyInSelect(options, 'Choose where to retrieve data from:');
+
+ if (index === 0) {
+  getFromMariadb();
+ } else if (index === 1) {
+  getFromJson();
+ } else {
+  console.log('Operation canceled.');
+ }
+}
 function formatTable(BoxArr) {
  console.log(styles.bgYellow + styles.fgBlack + 'Pokemon list' + styles.reset);
  console.log("Nombre | Tipo | Vida | Ataque | Defensa");
@@ -97,8 +166,26 @@ function formatTable(BoxArr) {
   console.log(` |${element.nombre}|  |${element.tipo}|    |${element.vida}|      |${element.ataque}|      |${element.defensa}|`);
  });
 }
-function remove() {
-
+async function removeOnMariadb() {
+ let conn;
+ try {
+  conn = await pool.getConnection();
+  const pokemons = await conn.query('SELECT nombre FROM pokemons');
+  console.clear();
+  console.log(styles.bgYellow + styles.fgBlack + 'Which pokemon do you want to remove?\n' + styles.reset);
+  const pokemonNames = pokemons.map(p => p.nombre);
+  const index = readlineSync.keyInSelect(pokemonNames, 'Choose a pokemon to remove:');
+  if (index !== -1) {
+   const result = await conn.query('DELETE FROM pokemons WHERE nombre = ?', [pokemonNames[index]]);
+   console.log('Pokemon removed from MariaDB:', result);
+  }
+ } catch (err) {
+  console.log('Error removing data from MariaDB:', err);
+ } finally {
+  if (conn) conn.release();
+ }
+}
+function removeOnJson() {
  fs.readFile('data.json', 'utf8', function (err, data) {
   if (err) {
    console.log(err);
@@ -127,11 +214,60 @@ function remove() {
   }
  });
 }
+function remove() {
+ console.clear();
+ // Prompt the user to choose insertion method
+ const options = ['MySQL', 'JSON'];
+ const index = readlineSync.keyInSelect(options, 'Choose where to remove data from:');
+
+ if (index === 0) {
+  removeOnMariadb();
+ } else if (index === 1) {
+  removeOnJson();
+ } else {
+  console.log('Operation canceled.');
+ }
+}
 function clear() {
 
  BoxArr = [];
 }
-function update() {
+async function updateFromMariadb() {
+ let conn;
+ pool.getConnection()
+  .then(connection => {
+   conn = connection;
+   return conn.query('SELECT nombre FROM pokemons');
+  })
+  .then(pokemons => {
+   console.clear();
+   console.log(styles.bgYellow + styles.fgBlack + '¿Qué pokemon quieres editar?\n' + styles.reset);
+   const pokemonNames = pokemons.map(p => p.nombre);
+   const index = readlineSync.keyInSelect(pokemonNames, 'Choose a pokemon to update:');
+   if (index !== -1) {
+    const pokemon = pokemons[index];
+    const newNombre = readlineSync.question('Nuevo nombre:');
+    const newTipo = readlineSync.question('Nuevo tipo:');
+    const newVida = readlineSync.question('Nueva vida:');
+    const newAtaque = readlineSync.question('Nuevo ataque:');
+    const newDefensa = readlineSync.question('Nueva defensa:');
+
+    const sql = 'UPDATE pokemons SET nombre = ?, tipo = ?, vida = ?, ataque = ?, defensa = ? WHERE nombre = ?';
+    const values = [newNombre, newTipo, newVida, newAtaque, newDefensa, pokemon.nombre];
+    return conn.query(sql, values);
+   }
+  })
+  .then(result => {
+   console.log('Pokemon updated in MariaDB:', result);
+  })
+  .catch(err => {
+   console.log('Error updating data in MariaDB:', err);
+  })
+  .finally(() => {
+   if (conn) conn.release();
+  });
+}
+function updateFromJson() {
  console.clear();
  console.log(styles.bgYellow + styles.fgBlack + '¿Qué pokemon quieres editar?\n' + styles.reset);
  let pokemonNombre = readlineSync.question('Nombre:');
@@ -176,6 +312,20 @@ function update() {
    console.log("No se encontró un Pokémon con ese nombre.");
   }
  });
+}
+function update() {
+ console.clear();
+ // Prompt the user to choose insertion method
+ const options = ['MySQL', 'JSON'];
+ const index = readlineSync.keyInSelect(options, 'Choose where to update data from:');
+
+ if (index === 0) {
+  updateFromMariadb();
+ } else if (index === 1) {
+  updateFromJson();
+ } else {
+  console.log('Operation canceled.');
+ }
 }
 
 module.exports = {

@@ -1,1 +1,37 @@
-[{"nombre":"Tasd","tipo":"a","vida":1,"ataque":1,"defensa":1},{"nombre":"b","tipo":"b","vida":2,"ataque":2,"defensa":2},{"nombre":"c","tipo":"c","vida":3,"ataque":3,"defensa":3},{"nombre":"d","tipo":"d","vida":4,"ataque":4,"defensa":4}]
+[
+ {
+  "nombre": "Tasd",
+  "tipo": "a",
+  "vida": 1,
+  "ataque": 1,
+  "defensa": 1
+ },
+ {
+  "nombre": "b",
+  "tipo": "b",
+  "vida": 2,
+  "ataque": 2,
+  "defensa": 2
+ },
+ {
+  "nombre": "c",
+  "tipo": "c",
+  "vida": 3,
+  "ataque": 3,
+  "defensa": 3
+ },
+ {
+  "nombre": "d",
+  "tipo": "d",
+  "vida": 4,
+  "ataque": 4,
+  "defensa": 4
+ },
+ {
+  "nombre": "as",
+  "tipo": "as",
+  "vida": 6,
+  "ataque": 6,
+  "defensa": 6
+ }
+]
